@@ -2074,7 +2074,7 @@ static void ggml_compute_forward_concat_f32(
         const int ir1 = MIN(ir0+dr, nr);
         for (int i3 = 0; i3 < ne3; i3++) {
             for (int i2 = 0; i2 < ne2; i2++) {
-                for (int i1 = ir0; i1 < ir1; i1+=dr) {
+                for (int i1 = ir0; i1 < ir1; i1++) {
                     for (int i0 = 0; i0 < ne0; i0++) {
                         if (i0 < ne00 && i1 < ne01 && i2 < ne02 && i3 < ne03) {
                             x = (const float *) ((const char *)src0->data + (i0       )*nb00 + (i1       )*nb01 + (i2       )*nb02 + (i3       )*nb03);
