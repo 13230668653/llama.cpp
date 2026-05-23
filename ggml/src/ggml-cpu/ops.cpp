@@ -4831,7 +4831,7 @@ static void ggml_compute_forward_get_rows_bf16(
                         (float *) ((char *)  dst->data + i10*nb1  + i11*nb2  + i12*nb3), nc);
     }
 }
-
+//TODO(fix) Thread splitting optimization
 static void ggml_compute_forward_get_rows_f32(
         const ggml_compute_params * params,
               ggml_tensor * dst) {
@@ -4851,26 +4851,42 @@ static void ggml_compute_forward_get_rows_f32(
 
     const int ith = params->ith;
     const int nth = params->nth;
+    //fix(fix)
+    if(nr > 1){
+    //fix(fix)
+    	// rows per thread
+    	const int dr = (nr + nth - 1)/nth;
+	
+    	// row range for this thread
+    	const int ir0 = dr*ith;
+    	const int ir1 = MIN(ir0 + dr, nr);
+	
+    	for (int64_t i = ir0; i < ir1; ++i) {
+        	const int64_t i12 = i/(ne11*ne10);
+        	const int64_t i11 = (i - i12*ne11*ne10)/ne10;
+        	const int64_t i10 = (i - i12*ne11*ne10 - i11*ne10);
+        	const int64_t i01 = *(int32_t *) ((char *) src1->data + i10*nb10 + i11*nb11 + i12*nb12);
 
-    // rows per thread
-    const int dr = (nr + nth - 1)/nth;
+        	GGML_ASSERT(i01 >= 0 && i01 < ne01);
 
-    // row range for this thread
-    const int ir0 = dr*ith;
-    const int ir1 = MIN(ir0 + dr, nr);
+        	ggml_vec_cpy_f32(nc,
+                	(float *) ((char *)  dst->data + i10*nb1  + i11*nb2  + i12*nb3),
+                	(float *) ((char *) src0->data + i01*nb01 + i11*nb02 + i12*nb03));
+    	}
+	//fix(fix)
+    } else {
+        // col per thread
+        const int dc = (nc + nth - 1)/nth;
 
-    for (int64_t i = ir0; i < ir1; ++i) {
-        const int64_t i12 = i/(ne11*ne10);
-        const int64_t i11 = (i - i12*ne11*ne10)/ne10;
-        const int64_t i10 = (i - i12*ne11*ne10 - i11*ne10);
-        const int64_t i01 = *(int32_t *) ((char *) src1->data + i10*nb10 + i11*nb11 + i12*nb12);
-
-        GGML_ASSERT(i01 >= 0 && i01 < ne01);
+        // col range for this thread
+        const int ic0 = dr*ith;
+        const int ic1 = MIN(irc + dr, nc);
 
         ggml_vec_cpy_f32(nc,
-                (float *) ((char *)  dst->data + i10*nb1  + i11*nb2  + i12*nb3),
-                (float *) ((char *) src0->data + i01*nb01 + i11*nb02 + i12*nb03));
+                (float *) ((char *)  dst->data + ic0*nb0),
+                (float *) ((char *) src0->data + ic1*nb01));
     }
+    //fix(fix)
 }
 
 void ggml_compute_forward_get_rows(
