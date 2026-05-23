@@ -4879,12 +4879,13 @@ static void ggml_compute_forward_get_rows_f32(
         const int dc = (nc + nth - 1)/nth;
 
         // col range for this thread
-        const int ic0 = dr*ith;
-        const int ic1 = MIN(irc + dr, nc);
-
-        ggml_vec_cpy_f32(nc,
-                (float *) ((char *)  dst->data + ic0*nb0),
-                (float *) ((char *) src0->data + ic1*nb01));
+        const int ic0 = dc*ith;
+        const int ic1 = MIN(ic0+dc, nc);
+        if(ic0 < ic1){
+            ggml_vec_cpy_f32(ic1-ic0,
+                    (float *) ((char *)  dst->data + ic0*nb0),
+                    (float *) ((char *) src0->data + ic1*nb00));
+        }
     }
     //fix(fix)
 }
