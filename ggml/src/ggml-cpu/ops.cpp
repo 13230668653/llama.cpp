@@ -2576,31 +2576,44 @@ static void ggml_compute_forward_silu_f32(
 
     const int nc = src0->ne[0];
     const int nr = ggml_nrows(src0);
+    if(nr>1){
+    	// rows per thread
+    	const int dr = (nr + nth - 1)/nth;
+	
+    	// row range for this thread
+    	const int ir0 = dr*ith;
+    	const int ir1 = MIN(ir0 + dr, nr);
 
-    // rows per thread
-    const int dr = (nr + nth - 1)/nth;
+    	for (int ir = ir0; ir < ir1; ++ir) {
+            const int i3 = ir/(ne02*ne01);
+            const int i2 = (ir - i3*ne02*ne01)/ne01;
+            const int i1 = (ir - i3*ne02*ne01 - i2*ne01);
 
-    // row range for this thread
-    const int ir0 = dr*ith;
-    const int ir1 = MIN(ir0 + dr, nr);
+            ggml_vec_silu_f32(nc,
+                    (float *) ((char *) dst->data  + i3*nb3  + i2*nb2  + i1*nb1),
+                    (float *) ((char *) src0->data + i3*nb03 + i2*nb02 + i1*nb01));
 
-    for (int ir = ir0; ir < ir1; ++ir) {
-        const int i3 = ir/(ne02*ne01);
-        const int i2 = (ir - i3*ne02*ne01)/ne01;
-        const int i1 = (ir - i3*ne02*ne01 - i2*ne01);
-
-        ggml_vec_silu_f32(nc,
-                (float *) ((char *) dst->data  + i3*nb3  + i2*nb2  + i1*nb1),
-                (float *) ((char *) src0->data + i3*nb03 + i2*nb02 + i1*nb01));
-
-#ifndef NDEBUG
-        for (int k = 0; k < nc; k++) {
-            const float x = ((float *) ((char *) dst->data + i3*nb3 + i2*nb2 + i1*(dst->nb[1])))[k];
-            GGML_UNUSED(x);
-            assert(!isnan(x));
-            assert(!isinf(x));
+        #ifndef NDEBUG
+            for (int k = 0; k < nc; k++) {
+                const float x = ((float *) ((char *) dst->data + i3*nb3 + i2*nb2 + i1*(dst->nb[1])))[k];
+                GGML_UNUSED(x);
+                assert(!isnan(x));
+                assert(!isinf(x));
+            }
+        #endif // NDEBUG
         }
-#endif // NDEBUG
+    } else {
+        // col per thread
+        const int dc = (nc + nth - 1)/nth;
+
+        // col range for this thread
+        const int ic0 = dc*ith;
+        const int ic1 = MIN(ic0 + dc, nc);
+        if(ic1 < ic0){
+            ggml_vec_silu_f32(ic1-ic0,
+                    (float *) ((char *) dst->data  + ic0*nb0),
+                    (float *) ((char *) src0->data + ic0*nb00));
+        }
     }
 }
 
