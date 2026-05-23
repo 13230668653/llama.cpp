@@ -2023,6 +2023,7 @@ static void ggml_compute_forward_concat_f16(
     }
 }
 
+//TODO(fix) Thread splitting optimization
 static void ggml_compute_forward_concat_f32(
     const ggml_compute_params * params,
     ggml_tensor * dst) {
@@ -2045,21 +2046,46 @@ static void ggml_compute_forward_concat_f32(
     o[dim] = src0->ne[dim];
 
     const float * x;
-
+    if(ne2 > 1){
     // TODO: smarter multi-theading
-    for (int i3 = 0; i3 < ne3; i3++) {
-        for (int i2 = ith; i2 < ne2; i2 += nth) {
-            for (int i1 = 0; i1 < ne1; i1++) {
-                for (int i0 = 0; i0 < ne0; i0++) {
-                    if (i0 < ne00 && i1 < ne01 && i2 < ne02 && i3 < ne03) {
-                        x = (const float *) ((const char *)src0->data + (i0       )*nb00 + (i1       )*nb01 + (i2       )*nb02 + (i3       )*nb03);
-                    } else {
-                        x = (const float *) ((const char *)src1->data + (i0 - o[0])*nb10 + (i1 - o[1])*nb11 + (i2 - o[2])*nb12 + (i3 - o[3])*nb13);
+    	for (int i3 = 0; i3 < ne3; i3++) {
+       	    for (int i2 = ith; i2 < ne2; i2 += nth) {
+                for (int i1 = 0; i1 < ne1; i1++) {
+                    for (int i0 = 0; i0 < ne0; i0++) {
+                        if (i0 < ne00 && i1 < ne01 && i2 < ne02 && i3 < ne03) {
+                            x = (const float *) ((const char *)src0->data + (i0       )*nb00 + (i1       )*nb01 + (i2       )*nb02 + (i3       )*nb03);
+                        } else {
+                            x = (const float *) ((const char *)src1->data + (i0 - o[0])*nb10 + (i1 - o[1])*nb11 + (i2 - o[2])*nb12 + (i3 - o[3])*nb13);
+                        }
+
+                        float * y = (float *)((char *)dst->data + i0*nb0 + i1*nb1 + i2*nb2 + i3*nb3);
+
+                        *y = *x;
                     }
+                }
+            }
+        }
+    } else {
+        const int nr = ne1;
+        // row per thread
+        const int dr = (nr + nth - 1)/nth;
+        // row range for this thread
+        const int ir0 = dr*ith;
+        const int ir1 = MIN(ir0+dr, nr);
+        for (int i3 = 0; i3 < ne3; i3++) {
+            for (int i2 = 0; i2 < ne2; i2++) {
+                for (int i1 = ir0; i1 < ir1; i1+=dr) {
+                    for (int i0 = 0; i0 < ne0; i0++) {
+                        if (i0 < ne00 && i1 < ne01 && i2 < ne02 && i3 < ne03) {
+                            x = (const float *) ((const char *)src0->data + (i0       )*nb00 + (i1       )*nb01 + (i2       )*nb02 + (i3       )*nb03);
+                        } else {
+                            x = (const float *) ((const char *)src1->data + (i0 - o[0])*nb10 + (i1 - o[1])*nb11 + (i2 - o[2])*nb12 + (i3 - o[3])*nb13);
+                        }
 
-                    float * y = (float *)((char *)dst->data + i0*nb0 + i1*nb1 + i2*nb2 + i3*nb3);
+                        float * y = (float *)((char *)dst->data + i0*nb0 + i1*nb1 + i2*nb2 + i3*nb3);
 
-                    *y = *x;
+                        *y = *x;
+                    }
                 }
             }
         }
@@ -4884,7 +4910,7 @@ static void ggml_compute_forward_get_rows_f32(
         if(ic0 < ic1){
             ggml_vec_cpy_f32(ic1-ic0,
                     (float *) ((char *)  dst->data + ic0*nb0),
-                    (float *) ((char *) src0->data + ic1*nb00));
+                    (float *) ((char *) src0->data + ic0*nb00));
         }
     }
     //fix(fix)
