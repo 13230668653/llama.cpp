@@ -2609,7 +2609,7 @@ static void ggml_compute_forward_silu_f32(
         // col range for this thread
         const int ic0 = dc*ith;
         const int ic1 = MIN(ic0 + dc, nc);
-        if(ic1 < ic0){
+        if(ic1 > ic0){
             ggml_vec_silu_f32(ic1-ic0,
                     (float *) ((char *) dst->data  + ic0*nb0),
                     (float *) ((char *) src0->data + ic0*nb00));
