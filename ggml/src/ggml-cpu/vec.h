@@ -87,20 +87,7 @@ inline static void ggml_vec_sub_f16 (const int n, ggml_fp16_t * z, const ggml_fp
     }
 }
 inline static void ggml_vec_set_f32 (const int n, float * x, const float   v)                  { for (int i = 0; i < n; ++i) x[i]  = v;           }
-//inline static void ggml_vec_cpy_f32 (const int n, float * y, const float * x)                  { for (int i = 0; i < n; ++i) y[i]  = x[i];        }
-inline static void ggml_vec_cpy_f32 (const int n, float * y, const float * x)                  {
-    #if defined(__riscv_v_intrinsic)
-        int i = 0;
-        for (; i < n; ) {
-            int vl = __riscv_vsetvl_e32m2(n - i);
-            vfloat32m2_t vx = __riscv_vle32_v_f32m2(&x[i], vl);
-            __riscv_vse32_v_f32m2(&y[i], vx, vl);
-            i += vl;
-        }
-    #else
-        for (int i = 0; i < n; ++i) y[i]  = x[i]; 
-    #endif
-}
+inline static void ggml_vec_cpy_f32 (const int n, float * y, const float * x)                  { for (int i = 0; i < n; ++i) y[i]  = x[i];        }
 inline static void ggml_vec_neg_f32 (const int n, float * y, const float * x)                  { for (int i = 0; i < n; ++i) y[i]  = -x[i];       }
 inline static void ggml_vec_neg_f16 (const int n, ggml_fp16_t * y, const ggml_fp16_t * x) {
     for (int i = 0; i < n; ++i) {
